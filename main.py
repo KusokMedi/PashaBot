@@ -1,28 +1,27 @@
 import telebot
-from telebot.types import Message
+import logging
 from config import TOKEN
-from lines import MSG_START, MSG_HELP, MSG_ERROR
+from handlers import register_handlers
+
+# Простое логирование в консоль
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
 
 # Создаем экземпляр бота
 bot = telebot.TeleBot(TOKEN)
 
-# Обработчик команды /start
-@bot.message_handler(commands=['start'])
-def start_command(message: Message):
-    bot.reply_to(message, MSG_START)
-
-# Обработчик команды /help
-@bot.message_handler(commands=['help'])
-def help_command(message: Message):
-    bot.reply_to(message, MSG_HELP)
-
-# Обработчик текстовых сообщений
-@bot.message_handler(content_types=['text'])
-def handle_text(message: Message):
-    # Здесь будет основная логика обработки сообщений
-    bot.reply_to(message, f"Вы написали: {message.text}")
+# Регистрируем все обработчики
+register_handlers(bot)
 
 # Запуск бота
 if __name__ == "__main__":
-    print("Бот запущен...")
-    bot.infinity_polling()
+    logging.info("Бот запущен...")
+    try:
+        bot.infinity_polling()
+    except Exception as e:
+        logging.error(f"Ошибка: {e}")
+    finally:
+        bot.stop_polling()
+        logging.info("Бот остановлен")
