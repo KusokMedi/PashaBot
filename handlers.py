@@ -58,7 +58,7 @@ def register_handlers(bot: TeleBot):
     # Команда TTS
     @bot.message_handler(commands=['tts'])
     def cmd_tts(message: Message):
-        if not message or not message.from_user:
+        if not message or not message.from_user or not message.text:
             return
             
         command_args = message.text.split(maxsplit=1)
@@ -75,7 +75,7 @@ def register_handlers(bot: TeleBot):
             # Регистрируем следующий шаг
             bot.register_next_step_handler(msg, lambda m: process_tts_text(m))
         
-    def process_tts_text(message: Message, direct_text: str = None):
+    def process_tts_text(message: Message, direct_text: Optional[str] = None):
         if not message or not message.text or not message.from_user:
             return
             
@@ -126,6 +126,9 @@ def register_handlers(bot: TeleBot):
     @bot.message_handler(commands=['voice'])
     def cmd_voice(message: Message):
         if not message or not message.from_user:
+            return
+            
+        if not message.text:
             return
             
         command_args = message.text.split()
@@ -331,8 +334,17 @@ def register_handlers(bot: TeleBot):
             try:
                 photos = bot.get_user_profile_photos(user_id, limit=1)
                 if photos and photos.total_count > 0 and photos.photos:
-                    photo = photos.photos[0][-1]  # Берем последнее (самое большое) фото
-                    if photo and photo.file_id:
+                    # photos.photos can be a list of lists (sizes) or a flat list depending on library version
+                    first_set = photos.photos[0]
+                    if isinstance(first_set, list):
+                        # choose largest available size (by file_size or width), fallback to last item
+                        try:
+                            photo = max(first_set, key=lambda p: getattr(p, 'file_size', getattr(p, 'width', 0) or 0))
+                        except Exception:
+                            photo = first_set[-1] if first_set else None
+                    else:
+                        photo = first_set
+                    if photo and getattr(photo, 'file_id', None):
                         file_info = bot.get_file(photo.file_id)
                         if file_info and file_info.file_path:
                             downloaded_file = bot.download_file(file_info.file_path)

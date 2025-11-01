@@ -42,17 +42,59 @@ class QuoteImage:
     
     def _wrap_text(self, text: str, width: int, font: ImageFont.FreeTypeFont) -> Tuple[str, int]:
         """Перенос длинного текста на новые строки"""
+        words = text.split()
         lines = []
-        max_line_width = 0
+        current_line = []
         
-        # Делим текст на строки по ширине
-        for line in textwrap.wrap(text, width=width):
-            line_width = font.getlength(line)
-            max_line_width = max(max_line_width, line_width)
-            lines.append(line)
+        for word in words:
+            current_line.append(word)
+            line = ' '.join(current_line)
+            # Проверяем ширину текущей строки
+            bbox = font.getbbox(line)
+            line_width = bbox[2] - bbox[0]
+            
+            # Если строка стала слишком длинной
+            if line_width > width:
+                if len(current_line) == 1:
+                    # Если одно слово слишком длинное, оставляем его
+                    lines.append(line)
+                    current_line = []
+                else:
+                    # Убираем последнее слово и добавляем строку
+                    current_line.pop()
+                    lines.append(' '.join(current_line))
+                    current_line = [word]
+        
+        # Добавляем последнюю строку
+        if current_line:
+            lines.append(' '.join(current_line))
             
         return '\n'.join(lines), len(lines)
     
+    def _calculate_optimal_font_size(self, text: str, max_width: int, max_height: int, 
+                                  start_size: int = 40, min_size: int = 16) -> tuple[int, ImageFont.FreeTypeFont, str, int]:
+        """Вычисляет оптимальный размер шрифта для текста"""
+        font_size = start_size
+        while font_size >= min_size:
+            font = ImageFont.truetype(self.default_font, font_size)
+            # Пробуем разные значения для переноса слов
+            for max_chars in range(40, 20, -5):
+                wrapped_text, num_lines = self._wrap_text(text, max_chars, font)
+                bbox = font.getbbox(wrapped_text)
+                text_width = bbox[2] - bbox[0]
+                text_height = bbox[3] - bbox[1] * num_lines
+                
+                # Проверяем, помещается ли текст
+                if text_width <= max_width and text_height <= max_height:
+                    return font_size, font, wrapped_text, num_lines
+            
+            font_size -= 2
+        
+        # Если дошли до минимального размера, возвращаем его
+        font = ImageFont.truetype(self.default_font, min_size)
+        wrapped_text, num_lines = self._wrap_text(text, 40, font)
+        return min_size, font, wrapped_text, num_lines
+
     def create_quote_image(self, text: str, author: Optional[str] = None, user_id: Optional[int] = None, user_pic_path: Optional[str] = None) -> Optional[str]:
         """Создание изображения с цитатой"""
         try:
@@ -60,19 +102,20 @@ class QuoteImage:
             img = Image.open(self.default_background)
             draw = ImageDraw.Draw(img)
             
-            # Настраиваем размер шрифта
-            font_size = 40
-            font = ImageFont.truetype(self.default_font, font_size)
-            
-            # Получаем размеры изображения
+            # Получаем размеры изображения и области для текста
             img_w, img_h = img.size
+            padding = 40
+            margin = 60
+            max_text_width = img_w - (padding * 2 + margin * 2)
+            max_text_height = img_h - (padding * 2 + margin)
             
-            # Подготавливаем текст
-            max_chars = 40
-            quote_text, num_lines = self._wrap_text(text, max_chars, font)
+            # Вычисляем оптимальный размер шрифта и подготавливаем текст
+            font_size, font, quote_text, num_lines = self._calculate_optimal_font_size(
+                text, max_text_width, max_text_height
+            )
             
-            # Вычисляем позиции для текста
-            text_bbox = draw.textbbox((0, 0), quote_text, font=font)
+            # Получаем размеры текста
+            text_bbox = font.getbbox(quote_text)
             text_w = text_bbox[2] - text_bbox[0]
             text_h = text_bbox[3] - text_bbox[1]
             
