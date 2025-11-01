@@ -1,7 +1,7 @@
 from PIL import Image, ImageDraw, ImageFont
 import textwrap
 import os
-from typing import Tuple
+from typing import Tuple, Optional
 
 class QuoteImage:
     def __init__(self):
@@ -53,7 +53,7 @@ class QuoteImage:
             
         return '\n'.join(lines), len(lines)
     
-    def create_quote_image(self, text: str, author: str = None, user_id: Optional[int] = None, user_pic_path: Optional[str] = None) -> str:
+    def create_quote_image(self, text: str, author: Optional[str] = None, user_id: Optional[int] = None, user_pic_path: Optional[str] = None) -> Optional[str]:
         """Создание изображения с цитатой"""
         try:
             # Загружаем фон
