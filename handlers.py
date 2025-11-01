@@ -214,28 +214,29 @@ def register_handlers(bot: TeleBot):
     def cmd_random_quote(message: Message):
         quote = quote_manager.get_random_quote()
         if quote:
-            # Получаем текст и автора из цитаты
+            # Получаем информацию из цитаты
             text = quote['text']
             author = quote.get('author')
-            # Получаем chat_id и message_id для поиска user_id
-            chat_id = quote.get('chat_id')
-            message_id = quote.get('message_id')
-            
-            try:
-                # Пытаемся получить информацию о сообщении для получения user_id
-                user_id = None
-                if chat_id and message_id:
-                    msg_info = bot.get_message(chat_id, message_id)
-                    if msg_info and msg_info.from_user:
-                        user_id = msg_info.from_user.id
-            except:
-                user_id = None
+            user_id = quote.get('user_id')
+            user_pic = quote.get('user_pic')
             
             # Создаем изображение со случайной цитатой
-            quote_img = quote_image.create_quote_image(text, author, user_id)
+            quote_img = quote_image.create_quote_image(
+                text, 
+                author, 
+                user_id=user_id, 
+                user_pic_path=user_pic
+            )
+            
             if quote_img and os.path.exists(quote_img):
+                # Добавляем статистику в подпись
+                caption = f"{MSG_QUOTE_RANDOM}\n\nВсего цитат: {quote_manager.get_quotes_count()}"
+                if author:
+                    author_quotes = quote_manager.get_quotes_by_author(author)
+                    caption += f"\nЦитат автора {author}: {len(author_quotes)}"
+                
                 with open(quote_img, 'rb') as img:
-                    bot.send_photo(message.chat.id, img, caption=MSG_QUOTE_RANDOM)
+                    bot.send_photo(message.chat.id, img, caption=caption)
                 os.remove(quote_img)
         else:
             bot.reply_to(message, MSG_QUOTE_EMPTY)
