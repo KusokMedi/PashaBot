@@ -302,19 +302,58 @@ def register_handlers(bot: TeleBot):
         # Получаем автора и его id
         author = None
         user_id = None
+        user_pic = None
+        
         if original_msg.from_user:
             author = original_msg.from_user.first_name
             user_id = original_msg.from_user.id
+            
+            # Пробуем получить фото пользователя
+            try:
+                photos = bot.get_user_profile_photos(user_id, limit=1)
+                if photos.total_count > 0:
+                    file_info = bot.get_file(photos.photos[0][-1].file_id)
+                    downloaded_file = bot.download_file(file_info.file_path)
+                    
+                    # Сохраняем временно
+                    temp_pic = f"temp_userpic_{user_id}.jpg"
+                    with open(temp_pic, 'wb') as f:
+                        f.write(downloaded_file)
+                    user_pic = temp_pic
+            except Exception as e:
+                print(f"Error getting user photo: {e}")
         
         # Сохраняем цитату
-        if quote_manager.add_quote(original_msg.text, author, original_msg.message_id, message.chat.id):
+        if quote_manager.add_quote(
+            text=original_msg.text,
+            author=author,
+            message_id=original_msg.message_id,
+            chat_id=message.chat.id,
+            user_id=user_id,
+            user_pic=user_pic
+        ):
             # Создаем изображение с цитатой
-            quote_img = quote_image.create_quote_image(original_msg.text, author, user_id)
+            quote_img = quote_image.create_quote_image(
+                original_msg.text,
+                author,
+                user_id=user_id,
+                user_pic_path=quote_manager.get_user_pic(user_id) if user_id else None
+            )
+            
             if quote_img and os.path.exists(quote_img):
+                # Добавляем статистику в подпись
+                caption = f"{MSG_QUOTE_SAVED}\n\nВсего цитат: {quote_manager.get_quotes_count()}"
+                if author:
+                    author_quotes = quote_manager.get_quotes_by_author(author)
+                    caption += f"\nЦитат автора {author}: {len(author_quotes)}"
+                    
                 with open(quote_img, 'rb') as img:
-                    bot.send_photo(message.chat.id, img)
+                    bot.send_photo(message.chat.id, img, caption=caption)
                 os.remove(quote_img)
-            bot.reply_to(message, MSG_QUOTE_SAVED)
+            
+            # Удаляем временный файл аватара
+            if user_pic and os.path.exists(user_pic):
+                os.remove(user_pic)
         else:
             bot.reply_to(message, MSG_QUOTE_ERROR)
     

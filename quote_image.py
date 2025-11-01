@@ -53,7 +53,7 @@ class QuoteImage:
             
         return '\n'.join(lines), len(lines)
     
-    def create_quote_image(self, text: str, author: str = None) -> str:
+    def create_quote_image(self, text: str, author: str = None, user_id: Optional[int] = None, user_pic_path: Optional[str] = None) -> str:
         """Создание изображения с цитатой"""
         try:
             # Загружаем фон
