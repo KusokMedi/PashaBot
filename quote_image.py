@@ -1,149 +1,141 @@
 from PIL import Image, ImageDraw, ImageFont
 import textwrap
 import os
+import random
 from typing import Tuple, Optional
 
 class QuoteImage:
     def __init__(self):
         # Настройка путей к ресурсам
         self.resources_dir = "resources"
-        self.fonts_dir = os.path.join(self.resources_dir, "fonts")
         self.backgrounds_dir = os.path.join(self.resources_dir, "backgrounds")
         
-        # Создаем директории если их нет
-        os.makedirs(self.fonts_dir, exist_ok=True)
-        os.makedirs(self.backgrounds_dir, exist_ok=True)
-        
-        # Пути к файлам по умолчанию
-        self.default_font = os.path.join(self.fonts_dir, "Roboto-Regular.ttf")
+        # Пути к файлам шрифтов
+        self.quote_font = "C:\\Windows\\Fonts\\Gabriola.ttf"  # Красивый шрифт для цитат
+        self.author_font = "C:\\Windows\\Fonts\\georgiab.ttf"  # Georgia Bold для автора
         self.default_background = os.path.join(self.backgrounds_dir, "quote_bg.jpg")
         
-        # Создаем стандартный фон если его нет
-        if not os.path.exists(self.default_background):
-            self._create_default_background()
-            
-        # Проверяем наличие шрифта
-        if not os.path.exists(self.default_font):
-            # Используем системный шрифт если нашего нет
-            system_fonts = [
-                "C:\\Windows\\Fonts\\arial.ttf",
-                "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-                "/System/Library/Fonts/Helvetica.ttc"
-            ]
-            for font in system_fonts:
-                if os.path.exists(font):
-                    self.default_font = font
-                    break
-    
-    def _create_default_background(self):
-        """Создание стандартного фона для цитат"""
-        img = Image.new('RGB', (800, 400), color='#2f3136')
-        img.save(self.default_background)
-    
-    def _wrap_text(self, text: str, width: int, font: ImageFont.FreeTypeFont) -> Tuple[str, int]:
-        """Перенос длинного текста на новые строки"""
-        words = text.split()
-        lines = []
-        current_line = []
-        
-        for word in words:
-            current_line.append(word)
-            line = ' '.join(current_line)
-            # Проверяем ширину текущей строки
-            bbox = font.getbbox(line)
-            line_width = bbox[2] - bbox[0]
-            
-            # Если строка стала слишком длинной
-            if line_width > width:
-                if len(current_line) == 1:
-                    # Если одно слово слишком длинное, оставляем его
-                    lines.append(line)
-                    current_line = []
-                else:
-                    # Убираем последнее слово и добавляем строку
-                    current_line.pop()
-                    lines.append(' '.join(current_line))
-                    current_line = [word]
-        
-        # Добавляем последнюю строку
-        if current_line:
-            lines.append(' '.join(current_line))
-            
-        return '\n'.join(lines), len(lines)
-    
-    def _calculate_optimal_font_size(self, text: str, max_width: int, max_height: int, 
-                                  start_size: int = 40, min_size: int = 16) -> tuple[int, ImageFont.FreeTypeFont, str, int]:
-        """Вычисляет оптимальный размер шрифта для текста"""
-        font_size = start_size
-        while font_size >= min_size:
-            font = ImageFont.truetype(self.default_font, font_size)
-            # Пробуем разные значения для переноса слов
-            for max_chars in range(40, 20, -5):
-                wrapped_text, num_lines = self._wrap_text(text, max_chars, font)
-                bbox = font.getbbox(wrapped_text)
-                text_width = bbox[2] - bbox[0]
-                text_height = bbox[3] - bbox[1] * num_lines
-                
-                # Проверяем, помещается ли текст
-                if text_width <= max_width and text_height <= max_height:
-                    return font_size, font, wrapped_text, num_lines
-            
-            font_size -= 2
-        
-        # Если дошли до минимального размера, возвращаем его
-        font = ImageFont.truetype(self.default_font, min_size)
-        wrapped_text, num_lines = self._wrap_text(text, 40, font)
-        return min_size, font, wrapped_text, num_lines
 
-    def create_quote_image(self, text: str, author: Optional[str] = None, user_id: Optional[int] = None, user_pic_path: Optional[str] = None) -> Optional[str]:
+    
+
+    
+
+
+    def create_quote_image(self, text: str, author: Optional[str] = None, user_id: Optional[int] = None, 
+                      user_pic_path: Optional[str] = None) -> Optional[str]:
         """Создание изображения с цитатой"""
         try:
-            # Загружаем фон
+            # Загружаем фон из resources
+            if not os.path.exists(self.default_background):
+                print("Ошибка: фоновое изображение не найдено")
+                return None
+                
             img = Image.open(self.default_background)
             draw = ImageDraw.Draw(img)
             
-            # Получаем размеры изображения и области для текста
+            # Получаем размеры изображения
             img_w, img_h = img.size
-            padding = 40
-            margin = 60
-            max_text_width = img_w - (padding * 2 + margin * 2)
-            max_text_height = img_h - (padding * 2 + margin)
+            padding = 80  # Увеличиваем отступы для лучшего внешнего вида
+            max_text_width = img_w - (padding * 2)
             
-            # Вычисляем оптимальный размер шрифта и подготавливаем текст
-            font_size, font, quote_text, num_lines = self._calculate_optimal_font_size(
-                text, max_text_width, max_text_height
-            )
+            # Настраиваем шрифты для цитаты и автора
+            quote_font_size = 60  # Уменьшаем размер шрифта
+            quote_font = ImageFont.truetype(self.quote_font, quote_font_size)
+            author_font = ImageFont.truetype(self.author_font, 32)
             
-            # Получаем размеры текста
-            text_bbox = font.getbbox(quote_text)
-            text_w = text_bbox[2] - text_bbox[0]
-            text_h = text_bbox[3] - text_bbox[1]
+            # Подготавливаем текст цитаты с учётом ширины изображения
+            max_width = int(img_w * 0.8)  # Используем 80% ширины изображения
+            lines = []
+            words = text.split()
+            current_line = []
             
-            # Центрируем текст
-            x = (img_w - text_w) // 2
-            y = (img_h - text_h) // 2 - 20  # Немного выше центра
+            for word in words:
+                current_line.append(word)
+                line = ' '.join(current_line)
+                bbox = quote_font.getbbox(line)
+                if bbox[2] - bbox[0] > max_width:
+                    if len(current_line) == 1:
+                        lines.append(line)
+                        current_line = []
+                    else:
+                        current_line.pop()
+                        lines.append(' '.join(current_line))
+                        current_line = [word]
             
-            # Рисуем текст
-            draw.text((x, y), quote_text, font=font, fill='white')
+            if current_line:
+                lines.append(' '.join(current_line))
+                
+            quote_text = '\n'.join(lines)
+            quote_bbox = quote_font.getbbox(quote_text)
+            quote_w = quote_bbox[2] - quote_bbox[0]
+            quote_h = quote_bbox[3] - quote_bbox[1]
             
-            # Добавляем автора если есть
+            # Позиционируем текст цитаты по центру, но выше если есть аватар
+            quote_x = (img_w - quote_w) // 2
+            if user_pic_path:
+                quote_y = (img_h - quote_h) // 2 - 60  # Ещё выше если есть аватар
+            else:
+                quote_y = (img_h - quote_h) // 2 - 30
+            
+            # Рисуем основной текст цитаты
+            text_color = (40, 40, 40)  # Почти чёрный цвет для текста
+            quote_shadow_offset = 2
+            
+            # Добавляем лёгкую тень для текста
+            draw.text((quote_x + quote_shadow_offset, quote_y + quote_shadow_offset), 
+                     quote_text, font=quote_font, fill=(200, 200, 200))  # Тень
+            draw.text((quote_x, quote_y), quote_text, 
+                     font=quote_font, fill=text_color)  # Основной текст
+            
+            # Если есть аватар пользователя, добавляем его
+            if user_pic_path and os.path.exists(user_pic_path):
+                try:
+                    # Загружаем и масштабируем аватар
+                    avatar = Image.open(user_pic_path)
+                    avatar_size = 100  # Увеличиваем размер аватара
+                    avatar = avatar.resize((avatar_size, avatar_size))
+                    
+                    # Создаем круглую маску с белой границей
+                    mask_size = avatar_size + 8  # Добавляем место для границы
+                    mask = Image.new('L', (mask_size, mask_size), 0)
+                    mask_draw = ImageDraw.Draw(mask)
+                    
+                    # Рисуем белую границу
+                    mask_draw.ellipse((0, 0, mask_size-1, mask_size-1), fill=255)
+                    
+                    # Создаем финальное изображение с аватаром
+                    avatar_with_border = Image.new('RGBA', (mask_size, mask_size), (255, 255, 255, 0))
+                    avatar_with_border.paste(avatar, (4, 4))  # Центрируем аватар внутри границы
+                    
+                    # Позиционируем аватар в правом нижнем углу
+                    avatar_x = img_w - mask_size - 30
+                    avatar_y = img_h - mask_size - 30
+                    
+                    # Накладываем аватар с маской
+                    img.paste(avatar_with_border, (avatar_x, avatar_y), mask)
+                except Exception as e:
+                    print(f"Ошибка при добавлении аватара: {e}")
+            
+            # Если есть автор, добавляем его имя
             if author:
-                author_font = ImageFont.truetype(self.default_font, font_size // 2)
                 author_text = f"— {author}"
-                author_bbox = draw.textbbox((0, 0), author_text, font=author_font)
+                author_bbox = author_font.getbbox(author_text)
                 author_w = author_bbox[2] - author_bbox[0]
                 
-                # Размещаем автора внизу справа
-                author_x = img_w - author_w - 20
-                author_y = img_h - 40
+                # Позиционируем имя автора
+                author_x = (img_w - author_w) // 2
+                author_y = quote_y + quote_h + 50
                 
-                draw.text((author_x, author_y), author_text, font=author_font, fill='#cccccc')
+                # Добавляем тень для имени автора
+                draw.text((author_x + quote_shadow_offset, author_y + quote_shadow_offset), 
+                         author_text, font=author_font, fill=(200, 200, 200))
+                draw.text((author_x, author_y), author_text, 
+                         font=author_font, fill=text_color)
             
-            # Сохраняем результат
+            # Сохраняем изображение во временный файл
             output_path = "temp_quote.png"
-            img.save(output_path)
+            img.save(output_path, format='PNG', quality=95)
             return output_path
-            
         except Exception as e:
-            print(f"Error creating quote image: {e}")
+            print(f"Ошибка при создании изображения: {e}")
             return None
