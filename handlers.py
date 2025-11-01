@@ -35,17 +35,24 @@ def register_handlers(bot: TeleBot):
     
     # Функция для создания голосового сообщения
     def create_voice_message(text: str, lang: str = 'ru') -> Optional[str]:
+        temp_file = None
         try:
             # Создаем временный файл
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as tmp_file:
-                # Генерируем голосовое сообщение
-                tts = gTTS(text=text, lang=lang)
-                # Сохраняем во временный файл
-                tts.save(tmp_file.name)
-                return tmp_file.name
+            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3')
+            # Генерируем голосовое сообщение
+            tts = gTTS(text=text, lang=lang)
+            # Сохраняем во временный файл
+            tts.save(temp_file.name)
+            temp_file.close()
+            return temp_file.name
         except Exception as e:
             print(f"TTS Error: {e}")
-            return None
+            if temp_file:
+                try:
+                    temp_file.close()
+                    os.unlink(temp_file.name)
+                except:
+                    pass
             return None
     
     # Команда TTS
@@ -142,12 +149,12 @@ def register_handlers(bot: TeleBot):
             # Регистрируем следующий шаг
             bot.register_next_step_handler(msg, process_voice_selection)
             
-    def process_voice_selection(message: Message, direct_input: str = None):
+    def process_voice_selection(message: Message, direct_input: Optional[str] = None):
         if not message or not message.from_user:
             return
             
         # Если пользователь нажал "Отмена" и выбор не был передан напрямую
-        if not direct_input and message.text == BTN_CANCEL:
+        if not direct_input and message.text and message.text == BTN_CANCEL:
             # Возвращаем основную клавиатуру
             keyboard = ReplyKeyboardMarkup(resize_keyboard=True)
             keyboard.add(KeyboardButton(BTN_TTS), KeyboardButton(BTN_QUOTES))
@@ -158,13 +165,22 @@ def register_handlers(bot: TeleBot):
             
         try:
             # Получаем номер языка
-            text = direct_input if direct_input else message.text
-            # Извлекаем первую цифру из текста (для случая когда выбор через кнопку "1. Русский")
-            lang_number = int(''.join(filter(str.isdigit, text.split('.')[0])))
-            
+            text = direct_input if direct_input else (message.text or "")
+            if not text:
+                bot.reply_to(message, MSG_VOICE_ERROR)
+                return
+                
+            # Извлекаем первую цифру из текста
+            digits = ''.join(filter(str.isdigit, text.split('.')[0]))
+            if not digits:
+                bot.reply_to(message, MSG_VOICE_ERROR)
+                return
+                
+            lang_number = int(digits)
             if 1 <= lang_number <= len(TTS_LANGS):
                 _, lang_name = TTS_LANGS[lang_number]
-                user_langs[message.from_user.id] = lang_number
+                if message.from_user and message.from_user.id:
+                    user_langs[message.from_user.id] = lang_number
                 
                 # Возвращаем основную клавиатуру
                 keyboard = ReplyKeyboardMarkup(resize_keyboard=True)
@@ -293,9 +309,12 @@ def register_handlers(bot: TeleBot):
     @bot.message_handler(func=lambda message: message.reply_to_message is not None and 
                         message.text and message.text.lower() in ['цитата', 'quote', 'цытата'])
     def handle_quote_reply(message: Message):
+        if not message or not message.reply_to_message:
+            return
+            
         # Получаем текст из оригинального сообщения
         original_msg = message.reply_to_message
-        if not original_msg.text:
+        if not original_msg or not original_msg.text:
             bot.reply_to(message, MSG_QUOTE_NO_TEXT)
             return
             
@@ -311,19 +330,21 @@ def register_handlers(bot: TeleBot):
             # Пробуем получить фото пользователя
             try:
                 photos = bot.get_user_profile_photos(user_id, limit=1)
-                if photos.total_count > 0:
-                    file_info = bot.get_file(photos.photos[0][-1].file_id)
-                    downloaded_file = bot.download_file(file_info.file_path)
-                    
-                    # Сохраняем временно
-                    temp_pic = f"temp_userpic_{user_id}.jpg"
-                    with open(temp_pic, 'wb') as f:
-                        f.write(downloaded_file)
-                    user_pic = temp_pic
+                if photos and photos.total_count > 0 and photos.photos:
+                    photo = photos.photos[0][-1]  # Берем последнее (самое большое) фото
+                    if photo and photo.file_id:
+                        file_info = bot.get_file(photo.file_id)
+                        if file_info and file_info.file_path:
+                            downloaded_file = bot.download_file(file_info.file_path)
+                            
+                            # Сохраняем временно
+                            temp_pic = f"temp_userpic_{user_id}.jpg"
+                            with open(temp_pic, 'wb') as f:
+                                f.write(downloaded_file)
+                            user_pic = temp_pic
             except Exception as e:
                 print(f"Error getting user photo: {e}")
-        
-        # Сохраняем цитату
+                user_pic = None        # Сохраняем цитату
         if quote_manager.add_quote(
             text=original_msg.text,
             author=author,

@@ -56,8 +56,8 @@ class QuoteManager:
         except:
             return None
     
-    def add_quote(self, text: str, author: str = None, message_id: int = None, 
-                 chat_id: int = None, user_id: int = None, user_pic: str = None) -> bool:
+    def add_quote(self, text: str, author: Optional[str] = None, message_id: Optional[int] = None, 
+                 chat_id: Optional[int] = None, user_id: Optional[int] = None, user_pic: Optional[str] = None) -> bool:
         """Добавление новой цитаты"""
         try:
             # Если передана картинка пользователя, сохраняем её
