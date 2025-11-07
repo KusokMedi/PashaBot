@@ -50,11 +50,15 @@
 ## ⚡ Быстрый старт
 
 Клонируйте репoзиторий:
-``git clone https://github.com/KusokMedi/PashaBot``
+```bash
+git clone https://github.com/KusokMedi/PashaBot
+```
 
 Зайдите в директорию, и запустите бота:
-``cd PashaBot``
-``python bot.py``
+```bash
+cd PashaBot
+python bot.py
+``` 
 
 ❗ Не забудьте заменить токен в config.py
 
