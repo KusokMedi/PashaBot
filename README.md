@@ -53,8 +53,8 @@
 ```git clone https://github.com/KusokMedi/PashaBot```
 
 Зайдите в директорию, и запустите бота:
-```cd PashaBot
-python bot.py```
+```cd PashaBot```
+```python bot.py```
 
 ###❗ Не забудьте заменить токен в config.py
 
